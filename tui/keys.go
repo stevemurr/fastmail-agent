@@ -14,6 +14,7 @@ type keyMap struct {
 	CopyAttachments key.Binding
 	CopyFull        key.Binding
 	ExportFolder    key.Binding
+	ExportPDF       key.Binding
 	PageUp          key.Binding
 	PageDown        key.Binding
 }
@@ -62,6 +63,10 @@ var keys = keyMap{
 	ExportFolder: key.NewBinding(
 		key.WithKeys("j"),
 		key.WithHelp("j", "export folder"),
+	),
+	ExportPDF: key.NewBinding(
+		key.WithKeys("p"),
+		key.WithHelp("p", "export PDF"),
 	),
 	PageUp: key.NewBinding(
 		key.WithKeys("pgup", "ctrl+u"),

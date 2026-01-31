@@ -66,6 +66,11 @@ type exportFolderMsg struct {
 	err     error
 }
 
+type exportPDFMsg struct {
+	filename string
+	err      error
+}
+
 func New(client *jmap.Client) Model {
 	return Model{
 		client:     client,
@@ -156,6 +161,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = "Export failed: " + msg.err.Error()
 		} else {
 			m.status = fmt.Sprintf("Exported to %s/", msg.dirName)
+		}
+		return m, nil
+
+	case exportPDFMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.status = "PDF export failed: " + msg.err.Error()
+		} else {
+			m.status = fmt.Sprintf("Exported PDF: %s", msg.filename)
 		}
 		return m, nil
 
@@ -276,6 +290,12 @@ func (m Model) updateThread(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.status = "Exporting to folder..."
 		return m, m.doExportFolder(emails)
 
+	case key.Matches(msg, keys.ExportPDF):
+		emails := m.threadView.Emails()
+		m.loading = true
+		m.status = "Generating PDF..."
+		return m, m.doExportPDF(emails)
+
 	case key.Matches(msg, keys.Export):
 		emails := m.threadView.Emails()
 		if err := export.ExportToFile(emails, ""); err != nil {
@@ -348,7 +368,7 @@ func (m Model) viewThread() string {
 	}
 
 	content := m.threadView.View()
-	help := helpStyle.Render("↑/↓ scroll • c copy • a attachments • f full • j folder • e export • q back")
+	help := helpStyle.Render("↑/↓ scroll • c copy • a attachments • f full • j folder • p pdf • e export • q back")
 
 	return lipgloss.JoinVertical(lipgloss.Left, title, content, help)
 }
@@ -372,5 +392,17 @@ func (m Model) doExportFolder(emails []jmap.Email) tea.Cmd {
 		opts := export.DefaultLLMOptions()
 		dirName, err := export.ExportToFolder(emails, m.client, opts)
 		return exportFolderMsg{dirName: dirName, err: err}
+	}
+}
+
+func (m Model) doExportPDF(emails []jmap.Email) tea.Cmd {
+	return func() tea.Msg {
+		// Generate filename from subject
+		filename := ""
+		if len(emails) > 0 {
+			filename = export.GeneratePDFFilename(emails[0].Subject)
+		}
+		err := export.ExportToPDF(emails, filename)
+		return exportPDFMsg{filename: filename, err: err}
 	}
 }

@@ -39,6 +39,7 @@ func main() {
 	query := flag.String("q", "", "Search query - returns list of threads as JSON with IDs")
 	threadID := flag.Int("t", 0, "Thread ID from query results - returns full thread content")
 	outputJSON := flag.Bool("json", false, "Output thread content as JSON (only for -t, -q always outputs JSON)")
+	outputPDF := flag.Bool("pdf", false, "Export thread as PDF (only for -t)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `fastmail-agent - Search and export Fastmail emails
@@ -48,6 +49,7 @@ USAGE:
   fastmail-agent -q "search terms"  Search and list threads (JSON output)
   fastmail-agent -t <id>            Fetch thread by ID (text output, LLM-optimized)
   fastmail-agent -t <id> -json      Fetch thread by ID (JSON output)
+  fastmail-agent -t <id> -pdf       Export thread as PDF
 
 AGENT WORKFLOW:
   1. Search for threads:
@@ -57,6 +59,10 @@ AGENT WORKFLOW:
   2. Fetch specific thread content:
      $ fastmail-agent -t 3
      Returns the full email thread in LLM-optimized text format
+
+  3. Export thread as PDF:
+     $ fastmail-agent -t 3 -pdf
+     Exports thread as a PDF file suitable for legal/court use
 
 FLAGS:
 `)
@@ -90,7 +96,7 @@ FLAGS:
 
 	// CLI mode: fetch specific thread
 	if *threadID > 0 {
-		runFetchThread(client, *threadID, *outputJSON)
+		runFetchThread(client, *threadID, *outputJSON, *outputPDF)
 		return
 	}
 
@@ -138,7 +144,7 @@ func runQuery(client *jmap.Client, query string) {
 }
 
 // runFetchThread fetches and outputs a specific thread by its query result ID
-func runFetchThread(client *jmap.Client, threadID int, asJSON bool) {
+func runFetchThread(client *jmap.Client, threadID int, asJSON bool, asPDF bool) {
 	// We need to re-run a broad search and find the thread by index
 	// This is a limitation - we could cache results, but for agent use
 	// the typical workflow is: query -> pick thread -> fetch thread
@@ -186,7 +192,14 @@ func runFetchThread(client *jmap.Client, threadID int, asJSON bool) {
 		return ti.Before(tj)
 	})
 
-	if asJSON {
+	if asPDF {
+		filename := export.GeneratePDFFilename(thread.Subject)
+		if err := export.ExportToPDF(emails, filename); err != nil {
+			fmt.Fprintf(os.Stderr, "Error exporting PDF: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Exported: %s\n", filename)
+	} else if asJSON {
 		outputThreadJSON(emails, thread.Subject)
 	} else {
 		// Output in LLM-optimized text format

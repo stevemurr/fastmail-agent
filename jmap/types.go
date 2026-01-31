@@ -81,6 +81,9 @@ type Email struct {
 	BodyValues    map[string]BodyValue `json:"bodyValues"`
 	Attachments   []Attachment         `json:"attachments"`
 	HasAttachment bool                 `json:"hasAttachment"`
+	MessageID     []string             `json:"messageId"`
+	InReplyTo     []string             `json:"inReplyTo"`
+	References    []string             `json:"references"`
 }
 
 // Attachment represents an email attachment

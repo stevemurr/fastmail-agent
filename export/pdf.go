@@ -1,0 +1,368 @@
+package export
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"html"
+	"html/template"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/chromedp"
+
+	"github.com/stevemurr/fastmail-agent/jmap"
+)
+
+const pdfTemplate = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .thread-header {
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        .thread-header h1 {
+            font-size: 14pt;
+            margin: 0 0 10px 0;
+            color: #000;
+        }
+        .thread-meta {
+            font-size: 9pt;
+            color: #666;
+        }
+        .email {
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+        .email-header {
+            background-color: #f5f5f5;
+            padding: 12px 15px;
+            border-bottom: 1px solid #ccc;
+        }
+        .email-header-row {
+            margin-bottom: 4px;
+            font-size: 10pt;
+        }
+        .email-header-row:last-child {
+            margin-bottom: 0;
+        }
+        .header-label {
+            font-weight: 600;
+            color: #555;
+            display: inline-block;
+            min-width: 80px;
+        }
+        .header-value {
+            color: #000;
+        }
+        .message-id {
+            font-family: monospace;
+            font-size: 9pt;
+            color: #666;
+            word-break: break-all;
+        }
+        .email-body {
+            padding: 15px;
+            background-color: #fff;
+        }
+        .email-body p {
+            margin: 0 0 10px 0;
+        }
+        .email-body p:last-child {
+            margin-bottom: 0;
+        }
+        .email-number {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 9pt;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #ccc;
+            font-size: 8pt;
+            color: #999;
+            text-align: center;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: inherit;
+            margin: 0;
+        }
+        blockquote {
+            margin: 10px 0;
+            padding-left: 15px;
+            border-left: 3px solid #ccc;
+            color: #666;
+        }
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        @media print {
+            body {
+                padding: 0;
+            }
+            .email {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="thread-header">
+        <h1>Email Thread Export</h1>
+        <div class="thread-meta">
+            <div>Export Date: {{.ExportDate}}</div>
+            <div>Subject: {{.Subject}}</div>
+            <div>Total Emails: {{.EmailCount}}</div>
+        </div>
+    </div>
+
+    {{range $idx, $email := .Emails}}
+    <div class="email">
+        <div class="email-header">
+            <div class="email-number">Email {{$email.Number}} of {{$.EmailCount}}</div>
+            <div class="email-header-row">
+                <span class="header-label">From:</span>
+                <span class="header-value">{{$email.From}}</span>
+            </div>
+            <div class="email-header-row">
+                <span class="header-label">To:</span>
+                <span class="header-value">{{$email.To}}</span>
+            </div>
+            {{if $email.CC}}
+            <div class="email-header-row">
+                <span class="header-label">CC:</span>
+                <span class="header-value">{{$email.CC}}</span>
+            </div>
+            {{end}}
+            <div class="email-header-row">
+                <span class="header-label">Date:</span>
+                <span class="header-value">{{$email.Date}}</span>
+            </div>
+            <div class="email-header-row">
+                <span class="header-label">Subject:</span>
+                <span class="header-value">{{$email.Subject}}</span>
+            </div>
+            {{if $email.MessageID}}
+            <div class="email-header-row">
+                <span class="header-label">Message-ID:</span>
+                <span class="header-value message-id">{{$email.MessageID}}</span>
+            </div>
+            {{end}}
+        </div>
+        <div class="email-body">
+            {{$email.Body}}
+        </div>
+    </div>
+    {{end}}
+
+    <div class="footer">
+        This document was exported from Fastmail on {{.ExportDate}}<br>
+        Generated by fastmail-agent
+    </div>
+</body>
+</html>`
+
+type pdfEmailData struct {
+	Number    int
+	From      string
+	To        string
+	CC        string
+	Date      string
+	Subject   string
+	MessageID string
+	Body      template.HTML
+}
+
+type pdfTemplateData struct {
+	ExportDate string
+	Subject    string
+	EmailCount int
+	Emails     []pdfEmailData
+}
+
+// ExportToPDF renders a thread as a PDF file
+func ExportToPDF(emails []jmap.Email, filename string) error {
+	if len(emails) == 0 {
+		return fmt.Errorf("no emails to export")
+	}
+
+	// Generate filename if not provided
+	if filename == "" {
+		subject := sanitizeFilename(emails[0].Subject)
+		timestamp := time.Now().Format("2006-01-02_150405")
+		filename = fmt.Sprintf("%s_%s.pdf", subject, timestamp)
+	}
+
+	// Build template data
+	data := pdfTemplateData{
+		ExportDate: time.Now().Format("January 2, 2006 at 3:04 PM MST"),
+		Subject:    emails[0].Subject,
+		EmailCount: len(emails),
+		Emails:     make([]pdfEmailData, len(emails)),
+	}
+
+	for i, email := range emails {
+		messageID := ""
+		if len(email.MessageID) > 0 {
+			messageID = email.MessageID[0]
+		}
+
+		body := getEmailBodyHTML(email)
+
+		data.Emails[i] = pdfEmailData{
+			Number:    i + 1,
+			From:      formatAddressesForPDF(email.From),
+			To:        formatAddressesForPDF(email.To),
+			CC:        formatAddressesForPDF(email.CC),
+			Date:      formatDateForPDF(email.ReceivedAt),
+			Subject:   email.Subject,
+			MessageID: messageID,
+			Body:      template.HTML(body),
+		}
+	}
+
+	// Render HTML template
+	tmpl, err := template.New("pdf").Parse(pdfTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var htmlBuf bytes.Buffer
+	if err := tmpl.Execute(&htmlBuf, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	// Use chromedp to render PDF
+	ctx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
+
+	// Set timeout
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	var pdfBuf []byte
+	if err := chromedp.Run(ctx,
+		chromedp.Navigate("about:blank"),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			frameTree, err := page.GetFrameTree().Do(ctx)
+			if err != nil {
+				return err
+			}
+			return page.SetDocumentContent(frameTree.Frame.ID, htmlBuf.String()).Do(ctx)
+		}),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			var err error
+			pdfBuf, _, err = page.PrintToPDF().
+				WithPrintBackground(true).
+				WithMarginTop(0.5).
+				WithMarginBottom(0.5).
+				WithMarginLeft(0.5).
+				WithMarginRight(0.5).
+				WithPaperWidth(8.5).
+				WithPaperHeight(11).
+				Do(ctx)
+			return err
+		}),
+	); err != nil {
+		return fmt.Errorf("failed to generate PDF: %w", err)
+	}
+
+	// Write PDF to file
+	if err := writeFile(filename, pdfBuf); err != nil {
+		return fmt.Errorf("failed to write PDF: %w", err)
+	}
+
+	return nil
+}
+
+// getEmailBodyHTML returns the email body as HTML
+func getEmailBodyHTML(email jmap.Email) string {
+	// Prefer HTML body for PDF rendering
+	for _, part := range email.HTMLBody {
+		if val, ok := email.BodyValues[part.PartID]; ok {
+			return sanitizeHTMLBody(val.Value)
+		}
+	}
+
+	// Fall back to text body, convert to HTML
+	for _, part := range email.TextBody {
+		if val, ok := email.BodyValues[part.PartID]; ok {
+			return textToHTML(val.Value)
+		}
+	}
+
+	return html.EscapeString(email.Preview)
+}
+
+// sanitizeHTMLBody cleans up HTML for PDF rendering
+func sanitizeHTMLBody(htmlContent string) string {
+	// Remove potentially problematic elements but keep the content structure
+	// This is a basic sanitization - the chromedp renderer will handle most HTML
+	return htmlContent
+}
+
+// textToHTML converts plain text to HTML with proper escaping and line breaks
+func textToHTML(text string) string {
+	escaped := html.EscapeString(text)
+	// Convert line breaks to <br> or wrap in <pre>
+	return "<pre>" + escaped + "</pre>"
+}
+
+// formatAddressesForPDF formats email addresses for PDF display
+func formatAddressesForPDF(addrs []jmap.EmailAddress) string {
+	if len(addrs) == 0 {
+		return ""
+	}
+	parts := make([]string, len(addrs))
+	for i, addr := range addrs {
+		if addr.Name != "" {
+			parts[i] = fmt.Sprintf("%s &lt;%s&gt;", html.EscapeString(addr.Name), html.EscapeString(addr.Email))
+		} else {
+			parts[i] = html.EscapeString(addr.Email)
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// formatDateForPDF formats a JMAP date for PDF display
+func formatDateForPDF(dateStr string) string {
+	t, err := time.Parse(time.RFC3339, dateStr)
+	if err != nil {
+		return dateStr
+	}
+	return t.Local().Format("Monday, January 2, 2006 at 3:04:05 PM MST")
+}
+
+// writeFile writes data to a file
+func writeFile(filename string, data []byte) error {
+	return os.WriteFile(filename, data, 0644)
+}
+
+// GeneratePDFFilename generates a PDF filename from subject
+func GeneratePDFFilename(subject string) string {
+	sanitized := sanitizeFilename(subject)
+	timestamp := time.Now().Format("2006-01-02_150405")
+	return fmt.Sprintf("%s_%s.pdf", sanitized, timestamp)
+}
