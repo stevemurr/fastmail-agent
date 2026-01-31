@@ -10,7 +10,7 @@ import (
 
 	"github.com/atotto/clipboard"
 
-	"fastmail-to-text/jmap"
+	"github.com/stevemurr/fastmail-agent/jmap"
 )
 
 // ExportOptions controls export behavior

@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"fastmail-to-text/export"
-	"fastmail-to-text/jmap"
+	"github.com/stevemurr/fastmail-agent/export"
+	"github.com/stevemurr/fastmail-agent/jmap"
 )
 
 type threadViewModel struct {

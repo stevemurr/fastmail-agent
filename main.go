@@ -10,10 +10,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"fastmail-to-text/config"
-	"fastmail-to-text/export"
-	"fastmail-to-text/jmap"
-	"fastmail-to-text/tui"
+	"github.com/stevemurr/fastmail-agent/config"
+	"github.com/stevemurr/fastmail-agent/export"
+	"github.com/stevemurr/fastmail-agent/jmap"
+	"github.com/stevemurr/fastmail-agent/tui"
 )
 
 // ThreadInfo represents a thread in CLI query output
@@ -41,21 +41,21 @@ func main() {
 	outputJSON := flag.Bool("json", false, "Output thread content as JSON (only for -t, -q always outputs JSON)")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, `fastmail-to-text - Search and export Fastmail emails
+		fmt.Fprintf(os.Stderr, `fastmail-agent - Search and export Fastmail emails
 
 USAGE:
-  fastmail-to-text                    Launch interactive TUI
-  fastmail-to-text -q "search terms"  Search and list threads (JSON output)
-  fastmail-to-text -t <id>            Fetch thread by ID (text output, LLM-optimized)
-  fastmail-to-text -t <id> -json      Fetch thread by ID (JSON output)
+  fastmail-agent                    Launch interactive TUI
+  fastmail-agent -q "search terms"  Search and list threads (JSON output)
+  fastmail-agent -t <id>            Fetch thread by ID (text output, LLM-optimized)
+  fastmail-agent -t <id> -json      Fetch thread by ID (JSON output)
 
 AGENT WORKFLOW:
   1. Search for threads:
-     $ fastmail-to-text -q "from:alice@example.com invoice"
+     $ fastmail-agent -q "from:alice@example.com invoice"
      Returns JSON with thread IDs, subjects, dates, and previews
 
   2. Fetch specific thread content:
-     $ fastmail-to-text -t 3
+     $ fastmail-agent -t 3
      Returns the full email thread in LLM-optimized text format
 
 FLAGS:
@@ -154,7 +154,7 @@ func runFetchThread(client *jmap.Client, threadID int, asJSON bool) {
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: No previous query results found.\n")
-		fmt.Fprintf(os.Stderr, "Run a query first with: fastmail-to-text -q \"search terms\"\n")
+		fmt.Fprintf(os.Stderr, "Run a query first with: fastmail-agent -q \"search terms\"\n")
 		os.Exit(1)
 	}
 
@@ -293,7 +293,7 @@ func getStateFilePath() string {
 	if err != nil {
 		cacheDir = os.TempDir()
 	}
-	stateDir := cacheDir + "/fastmail-to-text"
+	stateDir := cacheDir + "/fastmail-agent"
 	os.MkdirAll(stateDir, 0700)
 	return stateDir + "/last_query.json"
 }

@@ -8,8 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"fastmail-to-text/export"
-	"fastmail-to-text/jmap"
+	"github.com/stevemurr/fastmail-agent/export"
+	"github.com/stevemurr/fastmail-agent/jmap"
 )
 
 var debugFile *os.File

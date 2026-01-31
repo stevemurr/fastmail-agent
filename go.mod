@@ -1,4 +1,4 @@
-module fastmail-to-text
+module github.com/stevemurr/fastmail-agent
 
 go 1.25.4
 

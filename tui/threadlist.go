@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"fastmail-to-text/jmap"
+	"github.com/stevemurr/fastmail-agent/jmap"
 )
 
 // ThreadItem represents a thread/conversation in the list
