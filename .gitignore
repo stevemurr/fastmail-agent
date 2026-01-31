@@ -1,0 +1,23 @@
+# Binary
+fastmail-to-text
+fastmail-agent
+
+# Debug
+debug.log
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Claude Code local settings
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Export artifacts (created at runtime)
+*_20*_*/
