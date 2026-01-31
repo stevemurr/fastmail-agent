@@ -13,13 +13,13 @@ A terminal UI and CLI tool for searching and exporting Fastmail emails. Designed
 ## Installation
 
 ```bash
-go install github.com/YOUR_USERNAME/fastmail-agent@latest
+go install github.com/stevemurr/fastmail-agent@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/fastmail-agent.git
+git clone https://github.com/stevemurr/fastmail-agent.git
 cd fastmail-agent
 go build -o fastmail-agent
 ```
