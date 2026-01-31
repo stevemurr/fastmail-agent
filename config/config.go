@@ -22,7 +22,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	configPath := filepath.Join(homeDir, ".config", "fastmail-tui", "config.json")
+	configPath := filepath.Join(homeDir, ".config", "fastmail-agent", "config.json")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err

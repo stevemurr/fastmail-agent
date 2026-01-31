@@ -70,7 +70,7 @@ FLAGS:
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		fmt.Fprintln(os.Stderr, "\nPlease set FASTMAIL_API_TOKEN environment variable")
-		fmt.Fprintln(os.Stderr, "or create ~/.config/fastmail-tui/config.json with:")
+		fmt.Fprintln(os.Stderr, "or create ~/.config/fastmail-agent/config.json with:")
 		fmt.Fprintln(os.Stderr, `  {"api_token": "fmu1-xxxxx"}`)
 		os.Exit(1)
 	}

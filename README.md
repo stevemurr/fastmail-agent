@@ -32,7 +32,7 @@ Set your Fastmail API token via environment variable:
 export FASTMAIL_API_TOKEN="fmu1-xxxxx"
 ```
 
-Or create a config file at `~/.config/fastmail-tui/config.json`:
+Or create a config file at `~/.config/fastmail-agent/config.json`:
 
 ```json
 {"api_token": "fmu1-xxxxx"}
